@@ -1,0 +1,399 @@
+/**
+ * MiCar Car NRF24L01 Pin assign
+ *
+ * Pins:
+ * Hardware SPI:
+ * MISO -> 12
+ * MOSI -> 11
+ * SCK -> 13
+ *
+ * Configurable:
+ * CE -> 8
+ * CSN -> 7
+ *
+ * By -- MX
+ */
+
+#include <SPI.h>
+#include <Mirf.h>
+#include <nRF24L01.h>
+#include <MirfHardwareSpiDriver.h>
+
+#define ENABLE_DEBUG        (0)
+
+void nrf24_init(void);
+int get_gamepad(int *px, int *py);
+
+void mx_car_init(void);
+void mx_car_set(int mod);
+
+int get_range(int x);
+void get_mode_rtime(int *pmod, int *prtime);
+
+int time_out_flag;
+int time_last;
+int time_run;
+
+void setup() {
+  Serial.begin(9600);
+  mx_car_init();
+  nrf24_init();
+  time_last = millis();
+  time_run = 0;
+  time_out_flag = 0;
+  Serial.println("MX Car Go..."); 
+}
+
+void loop() {
+  int x, y;
+  int cmod, time_diff, time_cur;
+
+  if (0 != get_gamepad(&x, &y)) {
+    get_mode_rtime(x, y, &cmod, &time_run);
+    Serial.print("x = ");
+    Serial.print(x);
+    Serial.print("; y = ");
+    Serial.print(y);
+    Serial.print("; mode = ");
+    Serial.println(cmod);
+    mx_car_set(cmod);
+    time_last = millis();
+    time_out_flag = 1;
+    Serial.print(".");
+  }
+  else {
+    delay(10);
+  }
+
+  if (time_out_flag) {
+    time_cur = millis();
+    if (time_cur >= time_last) {
+      time_diff = time_cur - time_last;
+    }
+    else {
+      time_diff = time_cur;
+    }
+    if (time_diff > time_run) {
+      mx_car_set(0);
+      time_out_flag = 0;
+    }
+  }
+}
+
+///////////////////////////////////////////
+// Car Function init & mode set
+///////////////////////////////////////////
+
+typedef enum car_mode_st {
+  CAR_STOP = 0,       // 0
+  CAR_UP,             // 1
+  CAR_DOWN,           // 2
+  CAR_LEFT,           // 3
+  CAR_RIGHT,          // 4
+  CAR_UP_LEFT,        // 5
+  CAR_UP_RIGHT,       // 6
+  CAR_DOWN_LEFT,      // 7
+  CAR_DOWN_RIGHT      // 8
+} CAR_MODE_T;
+
+void mx_car_init(void)
+{
+  pinMode(A0, OUTPUT);
+  pinMode(A1, OUTPUT);
+  pinMode(A2, OUTPUT);
+  pinMode(A3, OUTPUT);
+  
+  pinMode(10, OUTPUT);
+  pinMode(9, OUTPUT);
+  pinMode(5, OUTPUT);
+  pinMode(6, OUTPUT);
+ 
+  mx_car_set(CAR_STOP);
+}
+
+
+void mx_car_set(int mod)
+{
+  /*
+   * LEFT
+   * IN1/IN2 : D10+ A0
+   * IN3/IN4 : D9 + A1
+   * RIGH: 
+   * IN1/IN2 : D6 + A2
+   * IN3/IN4 : D5 + A3
+   *
+   */
+  switch(mod){
+    case CAR_UP:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, HIGH);
+      digitalWrite(A0, LOW);
+      digitalWrite(9, HIGH);
+      digitalWrite(A1, LOW);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, HIGH);
+      digitalWrite(A2, LOW);
+      digitalWrite(5, HIGH);
+      digitalWrite(A3, LOW);
+    break;
+    case CAR_DOWN:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, LOW);
+      digitalWrite(A0, HIGH);
+      digitalWrite(9, LOW);
+      digitalWrite(A1, HIGH);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, LOW);
+      digitalWrite(A2, HIGH);
+      digitalWrite(5, LOW);
+      digitalWrite(A3, HIGH);
+    break;
+    case CAR_LEFT:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, LOW);
+      digitalWrite(A0, HIGH);
+      digitalWrite(9, LOW);
+      digitalWrite(A1, HIGH);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, HIGH);
+      digitalWrite(A2, LOW);
+      digitalWrite(5, HIGH);
+      digitalWrite(A3, LOW);
+    break;
+    case CAR_RIGHT:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, HIGH);
+      digitalWrite(A0, LOW);
+      digitalWrite(9, HIGH);
+      digitalWrite(A1, LOW);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, LOW);
+      digitalWrite(A2, HIGH);
+      digitalWrite(5, LOW);
+      digitalWrite(A3, HIGH);
+    break;
+    case CAR_UP_LEFT:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, LOW);
+      digitalWrite(A0, LOW);
+      digitalWrite(9, LOW);
+      digitalWrite(A1, LOW);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, HIGH);
+      digitalWrite(A2, LOW);
+      digitalWrite(5, HIGH);
+      digitalWrite(A3, LOW);
+    break;
+    case CAR_UP_RIGHT:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, HIGH);
+      digitalWrite(A0, LOW);
+      digitalWrite(9, HIGH);
+      digitalWrite(A1, LOW);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, LOW);
+      digitalWrite(A2, LOW);
+      digitalWrite(5, LOW);
+      digitalWrite(A3, LOW);
+    break;
+    case CAR_DOWN_LEFT:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, LOW);
+      digitalWrite(A0, LOW);
+      digitalWrite(9, LOW);
+      digitalWrite(A1, LOW);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, LOW);
+      digitalWrite(A2, HIGH);
+      digitalWrite(5, LOW);
+      digitalWrite(A3, HIGH);
+    break;
+    case CAR_DOWN_RIGHT:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, LOW);
+      digitalWrite(A0, HIGH);
+      digitalWrite(9, LOW);
+      digitalWrite(A1, HIGH);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, LOW);
+      digitalWrite(A2, LOW);
+      digitalWrite(5, LOW);
+      digitalWrite(A3, LOW);
+    break;
+    default :
+    case CAR_STOP:
+      /* LEFT IN1/2/3/4 */
+      digitalWrite(10, LOW);
+      digitalWrite(A0, LOW);
+      digitalWrite(9, LOW);
+      digitalWrite(A1, LOW);
+      /* RIGHT IN1/2/3/4 */
+      digitalWrite(6, LOW);
+      digitalWrite(A2, LOW);
+      digitalWrite(5, LOW);
+      digitalWrite(A3, LOW);
+    break;
+  }
+}
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+// Get Car mode & run time base on x, y
+/////////////////////////////////////////////////////////////////////////////////////////////
+typedef struct map_note_st {
+  int car_mod;
+  int run_time;
+} MAP_NOTE_T;
+
+#define RUNTIME_LONG      (100)
+#define RUNTIME_NORMAL    (50)
+#define RUNTIME_SHORT     (20)
+
+const MAP_NOTE_T car_xy_map[5][5] = {
+  {// x=0, y=0/1/2/3/4
+    {CAR_UP_RIGHT, RUNTIME_LONG}, // x=0, y=0
+    {CAR_RIGHT, RUNTIME_NORMAL}, // x=0,y=1
+    {CAR_RIGHT, RUNTIME_LONG}, // x=0,y=2
+    {CAR_RIGHT, RUNTIME_NORMAL}, // x=0,y=3
+    {CAR_DOWN_RIGHT, RUNTIME_LONG}, // x=0,y=4
+  },
+  {// x=1, y=0/1/2/3/4
+    {CAR_UP, RUNTIME_NORMAL}, // x=1, y=0
+    {CAR_UP_RIGHT, RUNTIME_SHORT}, // x=1, y=1
+    {CAR_RIGHT, RUNTIME_SHORT}, // x=1, y=2
+    {CAR_DOWN_RIGHT, RUNTIME_SHORT}, // x=1, y=3
+    {CAR_DOWN, RUNTIME_NORMAL}, // x=1, y=4
+  },
+  {// x=2, y=0/1/2/3/4
+    {CAR_UP, RUNTIME_LONG}, // x=2, y=0
+    {CAR_UP, RUNTIME_SHORT}, // x=2, y=1
+    {CAR_STOP, RUNTIME_LONG}, // x=2, y=2
+    {CAR_DOWN, RUNTIME_SHORT}, // x=2, y=3
+    {CAR_DOWN, RUNTIME_LONG}, // x=2, y=4
+  },
+  {// x=3, y=0/1/2/3/4
+    {CAR_UP, RUNTIME_NORMAL}, // x=3, y=0
+    {CAR_UP_LEFT, RUNTIME_SHORT}, // x=3, y=1
+    {CAR_LEFT, RUNTIME_SHORT}, // x=3, y=2
+    {CAR_DOWN_LEFT, RUNTIME_SHORT}, // x=3, y=3
+    {CAR_DOWN, RUNTIME_NORMAL}, // x=3, y=4
+  },
+  {// x=4, y=0/1/2/3/4
+    {CAR_UP_LEFT, RUNTIME_LONG}, // x=4, y=0
+    {CAR_LEFT, RUNTIME_NORMAL}, // x=4, y=1
+    {CAR_LEFT, RUNTIME_LONG}, // x=4, y=2
+    {CAR_LEFT, RUNTIME_NORMAL}, // x=4, y=3
+    {CAR_DOWN_LEFT, RUNTIME_LONG}, // x=4, y=4
+  },
+};
+
+void get_mode_rtime(int x, int y, int *pmod, int *prtime)
+{
+  MAP_NOTE_T mnode;
+  x = get_range(x);
+  y = get_range(y);
+  mnode = car_xy_map[x][y];
+  Serial.print("xx = ");
+  Serial.print(x);
+  Serial.print("; yy = ");
+  Serial.print(y);
+  Serial.print("; mnode = ");
+  Serial.print(mnode.car_mod);
+  Serial.print(" >> ");
+  *pmod = mnode.car_mod;
+  *prtime = mnode.run_time;
+}
+
+
+///////////////////////////
+// Mapping 0~1024 to 0~4
+///////////////////////////
+int get_range(int x)
+{
+  if (x <= 30) {
+    return 0;
+  }
+  else if (x < 450) {
+    return 1;
+  }
+  else if (x < 600) {
+    return 2;
+  }
+  else if (x < 950) {
+    return 3;
+  }
+  else if (x < 1025) {
+    return 4;
+  }
+  return 2;
+}
+
+//////////////////////////////
+//  Game pad receiver x & y
+//////////////////////////////
+void nrf24_init(void)
+{
+
+  /*
+   * Set the SPI Driver.
+   */
+
+  Mirf.spi = &MirfHardwareSpi;
+  
+  /*
+   * Setup pins / SPI.
+   */
+   
+  Mirf.init();
+  
+  /*
+   * Configure reciving address.
+   */
+   
+  Mirf.setRADDR((byte *)"mxcar");
+  
+  /*
+   * Set the payload length to sizeof(unsigned long) the
+   * return type of millis().
+   *
+   * NB: payload on client and server must be the same.
+   */
+   
+  Mirf.payload = 4;
+  
+  /*
+   * Write channel and payload config then power up reciver.
+   */
+   
+  Mirf.config();
+}
+
+int nrf_cnt=0;
+
+int get_gamepad(int *px, int *py)
+{
+  int x, y;
+  byte mxgp[32];
+/* get infor from mx gamepad */
+  if(!Mirf.isSending() && Mirf.dataReady()){
+    Mirf.getData((byte*)mxgp);
+
+    x = mxgp[0];
+    x = (x<<8) + mxgp[1];
+    y = mxgp[2];
+    y = (y<<8) + mxgp[3];
+    *px = x;
+    *py = y;
+
+#if ENABLE_DEBUG
+    Serial.print("x = ");
+    Serial.print(x);
+    Serial.print(",  y = ");
+    Serial.println(y);
+#endif
+    return 1;
+  }
+  return 0;
+}
+
