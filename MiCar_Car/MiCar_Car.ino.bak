@@ -50,6 +50,12 @@ void loop() {
 
   if (0 != get_gamepad(&x, &y)) {
     get_mode_rtime(x, y, &cmod, &time_run);
+    Serial.print("x = ");
+    Serial.print(x);
+    Serial.print("; y = ");
+    Serial.print(y);
+    Serial.print("; mode = ");
+    Serial.println(cmod);
     mx_car_set(cmod);
     time_last = millis();
     time_out_flag = 1;
@@ -285,25 +291,16 @@ const MAP_NOTE_T car_xy_map[5][5] = {
 void get_mode_rtime(int x, int y, int *pmod, int *prtime)
 {
   MAP_NOTE_T mnode;
-#if ENABLE_DEBUG
-  Serial.print("x = ");
-  Serial.print(x);
-  Serial.print("; y = ");
-  Serial.print(y);
-#endif  
   x = get_range(x);
   y = get_range(y);
   mnode = car_xy_map[x][y];
-#if ENABLE_DEBUG
-  Serial.print(" >> xx = ");
+  Serial.print("xx = ");
   Serial.print(x);
   Serial.print("; yy = ");
   Serial.print(y);
   Serial.print("; mnode = ");
   Serial.print(mnode.car_mod);
-  Serial.print("; time = ");
-  Serial.println(mnode.run_time);
-#endif  
+  Serial.print(" >> ");
   *pmod = mnode.car_mod;
   *prtime = mnode.run_time;
 }
